@@ -1,23 +1,17 @@
-`default_nettype	none
-<<<<<<< HEAD
-//hello
-=======
-//
->>>>>>> 14a8d2dd0be5df05cb4ee966d516bd6cde6ff680
 module	genericfir(i_clk, i_ce, i_sample, o_result);
 	parameter		NTAPS=5, IW=12, TW=IW, OW=2*IW+7;
-	input	wire			i_clk;
+	input	logic			i_clk;
 	//
 	//
-	input	wire			i_ce;
-	input	wire	[(IW-1):0]	i_sample;
-	output	wire	[(OW-1):0]	o_result;
+	input	logic			i_ce;
+	input	logic	[(IW-1):0]	i_sample;
+	output	logic	[(OW-1):0]	o_result;
 
-	reg    	[(TW-1):0] tap		[NTAPS:0];
-	wire	[(TW-1):0] tapout	[NTAPS:0];
-	wire	[(IW-1):0] sample	[NTAPS:0];
-	wire	[(OW-1):0] result	[NTAPS:0];
-	wire		tap_wr; //delete it?
+	logic   	[(TW-1):0] tap		[NTAPS:0];
+	logic	[(TW-1):0] tapout	[NTAPS:0];
+	logic	[(IW-1):0] sample	[NTAPS:0];
+	logic	[(OW-1):0] result	[NTAPS:0];
+	logic		tap_wr; //delete it?
 
 	// The first sample in our sample chain is the sample we are given
 	assign	sample[0]	= i_sample;
@@ -28,7 +22,7 @@ module	genericfir(i_clk, i_ce, i_sample, o_result);
 	generate
 	
 	begin
-		initial $readmemh("taps.txt", tap);
+		initial $readmemh("taps.txt", tap); //change the path according to simulation on vivado or pulpino
 
 		assign	tap_wr = 1'b0;
 	end 

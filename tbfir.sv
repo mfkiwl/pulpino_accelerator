@@ -2,12 +2,12 @@ module tbfir;
 
 //inputs
 
-reg Clk;
-reg signed [11:0] Xin;
-reg Ice;
+logic Clk;
+logic signed [11:0] Xin;
+logic Ice;
 
 // Outputs
-wire signed [30:0] Yout;
+logic signed [30:0] Yout;
 
 
     // Instantiate the Unit Under Test (UUT)

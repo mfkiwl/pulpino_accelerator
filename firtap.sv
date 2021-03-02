@@ -1,26 +1,23 @@
-
-`default_nettype	none
-//
 module	firtap(i_clk, i_tap, o_tap,
 		i_ce, i_sample, o_sample,
 		i_partial_acc, o_acc);
 	parameter		IW=16, TW=IW, OW=IW+TW+8; //input width, tap width, output width
 	//
-	input	wire			i_clk;
+	input	logic			i_clk;
 	//
-	input	wire	[(TW-1):0]	i_tap;
-	output	wire signed [(TW-1):0]	o_tap;
+	input	logic	[(TW-1):0]	i_tap;
+	output	logic signed [(TW-1):0]	o_tap;
 	//
-	input	wire			i_ce;
-	input	wire signed [(IW-1):0]	i_sample;
-	output	reg	[(IW-1):0]	o_sample;
+	input	logic			i_ce;
+	input	logic signed [(IW-1):0]	i_sample;
+	output	logic	[(IW-1):0]	o_sample;
 	//
-	input	wire	[(OW-1):0]	i_partial_acc;
-	output	reg	[(OW-1):0]	o_acc;
+	input	logic	[(OW-1):0]	i_partial_acc;
+	output	logic	[(OW-1):0]	o_acc;
 	//
 
-	reg		[(IW-1):0]	delayed_sample;
-	reg	signed	[(TW+IW-1):0]	product;
+	logic		[(IW-1):0]	delayed_sample;
+	logic	signed	[(TW+IW-1):0]	product;
 
 	// Our taps are fixed, the tap is given by the i_tap
 	// external input.  This allows the parent module to be
