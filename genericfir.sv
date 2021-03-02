@@ -1,5 +1,9 @@
 `default_nettype	none
+<<<<<<< HEAD
 //hello
+=======
+//
+>>>>>>> 14a8d2dd0be5df05cb4ee966d516bd6cde6ff680
 module	genericfir(i_clk, i_ce, i_sample, o_result);
 	parameter		NTAPS=5, IW=12, TW=IW, OW=2*IW+7;
 	input	wire			i_clk;
