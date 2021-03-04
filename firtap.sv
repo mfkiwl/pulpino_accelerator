@@ -1,6 +1,6 @@
 module	firtap(i_clk, i_tap, o_tap,
 		i_ce, i_sample, o_sample,
-		i_partial_acc, o_acc);
+		i_partial_acc, o_acc, o_valid);
 	parameter		IW=16, TW=IW, OW=IW+TW+8; //input width, tap width, output width
 	//
 	input	logic			i_clk;
@@ -15,6 +15,7 @@ module	firtap(i_clk, i_tap, o_tap,
 	input	logic	[(OW-1):0]	i_partial_acc;
 	output	logic	[(OW-1):0]	o_acc;
 	//
+  output logic o_valid;
 
 	logic		[(IW-1):0]	delayed_sample;
 	logic	signed	[(TW+IW-1):0]	product;
@@ -29,6 +30,7 @@ module	firtap(i_clk, i_tap, o_tap,
 	// next component
 	initial	o_sample = 0;
 	initial	delayed_sample = 0;
+  initial o_valid = 0;
 	always @(posedge i_clk)
 		
  		if (i_ce)
@@ -38,7 +40,12 @@ module	firtap(i_clk, i_tap, o_tap,
 			// accumulator structure (below) works.
 			delayed_sample <= i_sample;
 			o_sample <= delayed_sample;
+     
 		end
+
+  always @(negedge i_clk)
+    if(i_ce)
+      o_valid = 0;
 
 
 	// Multiply the filter tap by the incoming sample
@@ -52,8 +59,11 @@ module	firtap(i_clk, i_tap, o_tap,
 	always @(posedge i_clk)
 
 		 if (i_ce)
-			o_acc <= i_partial_acc
-				+ { {(OW-(TW+IW)){product[(TW+IW-1)]}},
-						product }; //sign extension
+      begin
+        o_acc <= i_partial_acc
+          + { {(OW-(TW+IW)){product[(TW+IW-1)]}},
+              product }; //sign extension
+        o_valid = 1;
+      end
 
 endmodule
