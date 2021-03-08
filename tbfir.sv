@@ -5,7 +5,8 @@ module tbfir;
 logic Clk;
 logic signed [11:0] Xin;
 logic Ice;
-logic Datavalid;
+logic firstDataValid;
+logic lastDataValid;
 logic [31:0] counter;
 
 // Outputs
@@ -18,7 +19,8 @@ logic signed [30:0] Yout;
         .i_ce(Ice), 
         .i_sample(Xin), 
         .o_result(Yout),
-        .o_data_valid(Datavalid)
+        .o_valid_first(firstDataValid),
+        .o_valid_result(lastDataValid)
     );
 
 //Generate a clock with 10 ns clock period.
