@@ -48,7 +48,7 @@ module apb_acc
   logic [11:0] addr;
   logic [31:0] data_out = 0;
   logic [3:0]  ntaps;
-  logic [31:0] cfg = 0 ; // bit[0] -> ntaps_en, bit[1] -> tap_wr
+  logic [31:0] cfg = 0 ; // bit[0] -> ntaps_en || bit[1] -> tap_wr || bit[2] -> reset_filter || bit[3] -> reset_fifo
   logic valid;
   logic [31:0] counter = 0 ;
   logic ready;
@@ -57,6 +57,7 @@ module apb_acc
   logic [1:0] next_state, current_state;
   logic [(TW-1):0] new_tap	[NTAPS:0] ;
   logic [31:0] output_lenght;
+  logic [31:0] filter_output;
 
 
 
@@ -111,13 +112,36 @@ module apb_acc
       .i_output_lenght(output_lenght),
       .i_new_tap(new_tap),
       .i_tap_wr(cfg[1]),
+      .o_result(filter_output),
 			.i_sample(data_in),
-			.o_result(data_out),
       .o_valid_first(ready),
-      .o_valid_result(valid_out)
+      .o_valid_result(valid_out),
+      .o_clean_pip(clean_pip)
+
   );
 
-  assign valid_out = (counter >= 10); //(PSEL && PENABLE && PWRITE) &&
+
+
+  FIFObuffer #(.DATA_SIZE(OW),.SIZE(16)) FIFObuffer_i
+  (
+      .i_clk(clk),
+      .i_reset(cfg[3]),
+      .i_en(cfg[4]),
+      .i_write(valid_out),
+      .i_read(read_fifo),
+      .i_data(filter_output),
+      .o_data(data_out),
+      .o_empty(cfg[5]),
+      .o_full(cfg[6])
+			
+  );
+
+
+
+
+  assign read_fifo = (PSEL && PENABLE && !PWRITE && (addr == `REG_ACC_OUT));
+
+  //assign valid_out = (counter >= 10); //(PSEL && PENABLE && PWRITE) &&
   
   assign clk = HCLK;
   assign addr = PADDR[11:2]; //accelerator is word-addressed 
@@ -441,7 +465,6 @@ module	firtap(i_clk, i_reset, i_tap, o_tap,
 endmodule
 
 
-
  `define IDLE_STATE_FILTER      2'b00
  `define TRANSFER_STATE_FILTER  2'b01
  `define EMPTY_OUT_STATE_FILTER 2'b10
@@ -479,10 +502,10 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
     logic [1:0] current_state = `IDLE_STATE_FILTER , next_state;
     logic [15:0] signal_lenght;
     logic [15:0] output_lenght = 0;
-   
+    logic i_ce_reg;
     
     assign signal_lenght = output_lenght + ntaps-1;
-    //assign i_tap_wr = tap_wr;
+    //assign i_tap_wr =tap_wr;
     
     
     
@@ -533,7 +556,7 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
         
   //counter of inputs      
   always_ff@(posedge i_clk)
-    if(i_reset)
+    if(i_reset || (input_counter >= ( signal_lenght + ntaps)) )
         input_counter <= 0;
     else if(i_ce)
         input_counter <= input_counter + 1;
@@ -563,9 +586,9 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
 
         `TRANSFER_STATE_FILTER:
           begin
-            if(i_ce && (input_counter >= signal_lenght-1))
+            if(i_ce && (input_counter >= signal_lenght))
               next_state = `EMPTY_OUT_STATE_FILTER;
-            else if((i_ce && (input_counter <= signal_lenght-1)) && i_reset == 0)
+            else if((i_ce && (input_counter <= signal_lenght)) && i_reset == 0)
               next_state = `TRANSFER_STATE_FILTER;  
             else if(i_reset == 1)
                next_state = `IDLE_STATE_FILTER;
@@ -574,7 +597,10 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
           `EMPTY_OUT_STATE_FILTER:
           begin
             if( ( input_counter >= ( signal_lenght + ntaps-1) ) || i_reset == 1 )
+              begin
               next_state = `IDLE_STATE_FILTER;
+          
+              end
             else 
               next_state = `EMPTY_OUT_STATE_FILTER;  
           end
@@ -589,7 +615,10 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
   always_comb
     begin
       case(current_state)
-        `IDLE_STATE_FILTER: o_clean_pip = 0;
+        `IDLE_STATE_FILTER:
+          begin
+           o_clean_pip = 0; 
+          end
         `TRANSFER_STATE_FILTER: o_clean_pip = 0;
         `EMPTY_OUT_STATE_FILTER: o_clean_pip = 1;
         
@@ -601,10 +630,117 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
     
 //    always_ff@(posedge i_clk)
 //        o_valid_result = ( ( input_counter >= (2*ntaps - 1 ) )  );
-
-  assign  o_result = result[ntaps];
+  always_ff@(posedge i_clk)
+    i_ce_reg <= i_ce;
+ 
+  assign  o_result = result[ntaps]; 
   assign  o_valid_first = valid[0];
-  assign  o_valid_result = ( ( input_counter >= (2*ntaps ) )  );
+  assign  o_valid_result = ( ( input_counter >= (2*ntaps ) )  ) && i_ce_reg;
 
+
+endmodule
+
+
+module FIFObuffer#(parameter DATA_SIZE=16, parameter SIZE=8, parameter ADDR_SIZE=$clog2(SIZE))( i_clk, i_data, i_read, i_write, i_en, o_data, i_reset, o_empty, o_full); 
+
+                   
+input logic  i_clk, i_read, i_write, i_en, i_reset;
+
+output logic  o_empty, o_full;
+
+input logic   [DATA_SIZE-1:0]    i_data;
+
+output logic [DATA_SIZE-1:0] o_data;
+
+ // internal registers 
+logic last_write_not_read;
+
+
+logic [ADDR_SIZE:0]  counter = 0; 
+
+logic [DATA_SIZE-1:0] FIFO [0:SIZE-1]; 
+
+logic [ADDR_SIZE:0]  readCounter = 0,  writeCounter = 0; 
+
+assign o_empty = (counter==0)? 1'b1:1'b0; 
+
+assign o_full  = (counter==SIZE)? 1'b1:1'b0; 
+
+always @ (posedge i_clk or posedge i_reset) 
+    begin
+        if(i_reset)
+            last_write_not_read <= 0;
+        else if(i_read && !i_write)
+            last_write_not_read <= 0;
+        else if(!i_read && i_write)
+            last_write_not_read <= 1;
+    end
+
+always @ (posedge i_clk) 
+
+begin 
+
+ if (i_en==0); 
+
+ else 
+ begin 
+
+      if (i_reset)
+       begin 
+    
+         readCounter = 0; 
+    
+         writeCounter = 0; 
+    
+       end 
+    
+      else if (i_read ==1'b1 && counter!=0)
+       begin 
+    
+         o_data  = FIFO[readCounter]; 
+    
+         readCounter = readCounter+1; 
+    
+       end 
+    
+      else if (i_write==1'b1 && counter<SIZE)
+       begin
+         FIFO[writeCounter]  = i_data; 
+    
+         writeCounter  = writeCounter+1; 
+    
+       end 
+    
+      else; 
+
+ end 
+
+ if (writeCounter==SIZE) 
+
+  writeCounter=0; 
+
+ else if (readCounter==SIZE) 
+
+          readCounter=0; 
+
+      else;
+
+ if (readCounter > writeCounter)
+  begin 
+
+    counter=SIZE-(readCounter-writeCounter); 
+
+  end 
+
+ else if (writeCounter > readCounter) 
+
+  counter = writeCounter-readCounter; 
+
+ else if(last_write_not_read)
+    counter=SIZE;
+else
+    counter=0;
+
+end 
 
 endmodule

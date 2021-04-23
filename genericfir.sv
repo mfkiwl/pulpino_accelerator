@@ -1,3 +1,4 @@
+
  `define IDLE_STATE_FILTER      2'b00
  `define TRANSFER_STATE_FILTER  2'b01
  `define EMPTY_OUT_STATE_FILTER 2'b10
@@ -35,10 +36,10 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
     logic [1:0] current_state = `IDLE_STATE_FILTER , next_state;
     logic [15:0] signal_lenght;
     logic [15:0] output_lenght = 0;
-   
+    logic i_ce_reg;
     
     assign signal_lenght = output_lenght + ntaps-1;
-    //assign i_tap_wr = tap_wr;
+    //assign i_tap_wr =tap_wr;
     
     
     
@@ -89,7 +90,7 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
         
   //counter of inputs      
   always_ff@(posedge i_clk)
-    if(i_reset)
+    if(i_reset || (input_counter >= ( signal_lenght + ntaps)) )
         input_counter <= 0;
     else if(i_ce)
         input_counter <= input_counter + 1;
@@ -119,9 +120,9 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
 
         `TRANSFER_STATE_FILTER:
           begin
-            if(i_ce && (input_counter >= signal_lenght-1))
+            if(i_ce && (input_counter >= signal_lenght))
               next_state = `EMPTY_OUT_STATE_FILTER;
-            else if((i_ce && (input_counter <= signal_lenght-1)) && i_reset == 0)
+            else if((i_ce && (input_counter <= signal_lenght)) && i_reset == 0)
               next_state = `TRANSFER_STATE_FILTER;  
             else if(i_reset == 1)
                next_state = `IDLE_STATE_FILTER;
@@ -130,7 +131,10 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
           `EMPTY_OUT_STATE_FILTER:
           begin
             if( ( input_counter >= ( signal_lenght + ntaps-1) ) || i_reset == 1 )
+              begin
               next_state = `IDLE_STATE_FILTER;
+          
+              end
             else 
               next_state = `EMPTY_OUT_STATE_FILTER;  
           end
@@ -145,7 +149,10 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
   always_comb
     begin
       case(current_state)
-        `IDLE_STATE_FILTER: o_clean_pip = 0;
+        `IDLE_STATE_FILTER:
+          begin
+           o_clean_pip = 0; 
+          end
         `TRANSFER_STATE_FILTER: o_clean_pip = 0;
         `EMPTY_OUT_STATE_FILTER: o_clean_pip = 1;
         
@@ -157,10 +164,12 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
     
 //    always_ff@(posedge i_clk)
 //        o_valid_result = ( ( input_counter >= (2*ntaps - 1 ) )  );
-
-  assign  o_result = result[ntaps];
+  always_ff@(posedge i_clk)
+    i_ce_reg <= i_ce;
+ 
+  assign  o_result = result[ntaps]; 
   assign  o_valid_first = valid[0];
-  assign  o_valid_result = ( ( input_counter >= (2*ntaps ) )  );
+  assign  o_valid_result = ( ( input_counter >= (2*ntaps ) )  ) && i_ce_reg;
 
 
 endmodule

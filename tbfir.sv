@@ -12,13 +12,13 @@ logic OutputDataValid;
 logic cleanpip;
 logic [31:0] counter;
 logic   [(TW-1):0] newtap		[NTAPS:0] ;
-logic Reset;
+logic Reset=0;
 
 
-logic [31:0] cfg = 32'h00000001;
-logic tapwr;
+logic [31:0] cfg = 32'h00000000;
+logic tapwr=0;
 
-logic [15:0] outputlenght = 1;
+logic [15:0] outputlenght = 2;
 
 logic end_input;
 
@@ -62,22 +62,22 @@ always_comb
 
 //Initialize and apply the inputs.
     initial begin
-    Xin=0;
+    //Xin=0;
 //    #50
-        tapwr=1;
-        newtap[8]=16;
-        newtap[7]=15;
-        newtap[6]=14;
-        newtap[5]=13;
-        newtap[4]=12;
-        newtap[3]=11;
-        newtap[2]=10;
-        newtap[1]=9;
-        newtap[0]=8;
-        #10
-         //tapwr=0;
+//        tapwr=1;
+//        newtap[8]=16;
+//        newtap[7]=15;
+//        newtap[6]=14;
+//        newtap[5]=13;
+//        newtap[4]=12;
+//        newtap[3]=11;
+//        newtap[2]=10;
+//        newtap[1]=9;
+//        newtap[0]=8;
+//        #10
+//         //tapwr=0;
          
-         #10
+//         #10
 
 
         end_input = 0;
@@ -89,6 +89,7 @@ always_comb
           Xin = 0; counter= counter+1;#10;
           Xin = 0; counter= counter+1;#10;
           Xin = 0; counter= counter+1;#10;
+          Xin = 2; counter= counter+1;#10; 
           end_input = 1;
 //          Xin = 0; counter= counter+1;#10;
 //          Xin = 0; counter= counter+1;#10;
@@ -101,10 +102,10 @@ always_comb
 //          Xin = 0; counter= counter+1;#10;
           Xin = 0'bX;
           
-          #80
-          Reset=1;
-          #10
-          Reset=0;
+//          #80
+//          Reset=1;
+//          #10
+//          Reset=0;
 //          counter= counter+1;#10;
 //          counter= counter+1;#10;
 //          counter= counter+1;#10;

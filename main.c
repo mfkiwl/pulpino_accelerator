@@ -41,15 +41,19 @@
 #define NumberOf(a) (sizeof (a) / sizeof *(a))
 
 int sendToAccelerator(int *dataInAddress, int data);
-int receiveFromAccelerator(int *dataOutAddress, int *validOutAddress);
+int receiveFromAccelerator(int *dataOutAddress);
 int setNtaps(int ntaps);
 int configNtapsEn(int param);
 int writeTap(int tapNumber, int value);
 int readTap(int tapNumber);
 int configTapWr(int param);
-int configReset(int param);
+int configResetFilter(int param);
 int setOutputLenght(int value);
 int readOutputLenght(void);
+int configFIFOen(int param);
+int resetFIFO(int param);
+int checkFIFOfull(void);
+int checkFIFOempty(void);
 
 void impulse_test(int ntaps, int *dataInAddress, int *dataOutAddress, int *validOutAddress, unsigned int benchParam);
 
@@ -94,26 +98,26 @@ static void convolve_hw(
     {
         sendToAccelerator(registerIn, Signal[i]);
         if(i >= 9) 
-          Output[i-9] = receiveFromAccelerator(registerOut, (int*)(ACCELERATOR_REGISTER_VALID_OUT));     
+          Output[i-9] = receiveFromAccelerator(registerOut);     
     }
     i++;
     while (i < FilterLength+2*(OutputLength)) {
       sendToAccelerator(registerIn, 0xFF);
-      Output[i-10] = receiveFromAccelerator(registerOut, (int*)(ACCELERATOR_REGISTER_VALID_OUT));     
+      Output[i-10] = receiveFromAccelerator(registerOut);     
       i++;
     }  
 }
 
 
-int receiveFromAccelerator(int *dataOutAddress, int *validOutAddress)
+int receiveFromAccelerator(int *dataOutAddress)
 {
-  if(*validOutAddress != 1)
+  if(checkFIFOempty() == 1)
     {
       // #ifdef DEBUG
       // printf("No data available, NUMBER OF INPUTS %d\n",*(int*)(ACCELERATOR_REGISTER_COUNTER));
       // #endif
 
-      return 0;
+      return 0xFFFFFFFF;
     }
   else
     {
@@ -327,7 +331,7 @@ int configTapWr(int param)
   return 0;
 }
 
-int configReset(int param)
+int configResetFilter(int param)
 {
   if(param == 1)   
     {
@@ -356,6 +360,45 @@ int readOutputLenght(void)
   return value;
 }
 
+int configFIFOen(int param)
+{
+     if(param == 1)   
+    {
+
+     *(int *)(ACCELERATOR_REGISTER_CONFIG) = ( *(int *)(ACCELERATOR_REGISTER_CONFIG)| 0x10 ) ;
+    }
+  else 
+  if(param == 0)
+  {
+       *(int *)(ACCELERATOR_REGISTER_CONFIG) = ( *(int *)(ACCELERATOR_REGISTER_CONFIG) & 0xFFFFFFEF ) ;
+  }
+  return 0;
+
+}
+
+int resetFIFO(int param)
+{
+       if(param == 1)   
+    {
+
+     *(int *)(ACCELERATOR_REGISTER_CONFIG) = ( *(int *)(ACCELERATOR_REGISTER_CONFIG)| 0x8 ) ;
+    }
+  else 
+  if(param == 0)
+  {
+       *(int *)(ACCELERATOR_REGISTER_CONFIG) = ( *(int *)(ACCELERATOR_REGISTER_CONFIG) & 0xFFFFFFF7 ) ;
+  }
+  return 0;
+}
+
+int checkFIFOempty(void)
+{
+  int value;
+  value = *(int *)(ACCELERATOR_REGISTER_CONFIG) & 0x00000020;
+  if(value == 0x20) return 1;
+  else return 0;
+}
+
 
 void perf_enable_id( int eventid){
   cpu_perf_conf_events(SPR_PCER_EVENT_MASK(eventid));
@@ -371,12 +414,12 @@ void impulse_test(int ntaps, int *dataInAddress, int *dataOutAddress, int *valid
   perf_reset();
   perf_enable_id(benchParam);
   sendToAccelerator(dataInAddress,1);
-  receiveFromAccelerator(dataOutAddress,validOutAddress);
+  receiveFromAccelerator(dataOutAddress);
   int counter;
   for(int i=0;i<(ntaps*2)-1;i++)
   {
     sendToAccelerator(dataInAddress,0);
-    receiveFromAccelerator(dataOutAddress,validOutAddress);
+    receiveFromAccelerator(dataOutAddress);
   }
   perf_stop();
   perfResult = cpu_perf_get(benchParam);
@@ -387,41 +430,75 @@ void impulse_test(int ntaps, int *dataInAddress, int *dataOutAddress, int *valid
 #define LongEnough  128
 
 int main()
-{ int tapValues [8];
-  writeTap(8, 16);
-  writeTap(7, 15);
-  writeTap(6, 14);
-  writeTap(5, 13);
-  writeTap(4, 12);
-  writeTap(3, 11);
-  writeTap(2, 10);
-  writeTap(1, 9);
+ { 
+   configFIFOen(1);
+   resetFIFO(1);
+   resetFIFO(0);
+   setOutputLenght(2);
+   int input[] ={20,0,0,0,0,0,0,0,2};
+   int  output[2];
+   int* registerIn = (int *)(ACCELERATOR_REGISTER_IN);
+   int* registerOut = (int *)(ACCELERATOR_REGISTER_OUT);
+  
+   for(int i=0;i<9;i++)
+   sendToAccelerator(registerIn,input[i]);
+   while(checkFIFOempty())
+   {
+     ;
+   }
+  
 
-  tapValues[0] = readTap(1);
-  tapValues[1] = readTap(2);
-  tapValues[2] = readTap(3);
-  tapValues[3] = readTap(4);
-  tapValues[4] = readTap(5);
-  tapValues[5] = readTap(6);
-  tapValues[6] = readTap(7);
-  tapValues[7] = readTap(8);
+    output[0] =receiveFromAccelerator(registerOut);
+    output[1] = receiveFromAccelerator(registerOut);
+    //output[0] =receiveFromAccelerator(registerOut);
 
-  for (int i=0; i < 8 ; i++)
-  printf("tap %d value %d\n ",i, tapValues[i]);
+    printf("value == %d\n",output[0]);
+      printf("value == %d\n",output[1]);
+
+   
+
+
+
+
+
+//   int tapValues [8];
+//   writeTap(8, 16);
+//   writeTap(7, 15);
+//   writeTap(6, 14);
+//   writeTap(5, 13);
+//   writeTap(4, 12);
+//   writeTap(3, 11);
+//   writeTap(2, 10);
+//   writeTap(1, 9);
+
+//   tapValues[0] = readTap(1);
+//   tapValues[1] = readTap(2);
+//   tapValues[2] = readTap(3);
+//   tapValues[3] = readTap(4);
+//   tapValues[4] = readTap(5);
+//   tapValues[5] = readTap(6);
+//   tapValues[6] = readTap(7);
+//   tapValues[7] = readTap(8);
+
+//   for (int i=0; i < 8 ; i++)
+//   printf("tap %d value %d\n ",i, tapValues[i]);
 
 
 
   
-  setNtaps(5);
-  printf("End of Program\n");
-  configNtapsEn(1);
-  configTapWr(1);
-  configReset(1);
-  setOutputLenght(10);
-  readOutputLenght();
+//   setNtaps(5);
+//   printf("End of Program\n");
+//   configNtapsEn(1);
+//   configTapWr(1);
+//   configReset(1);
+  // setOutputLenght(10);
+  // int value = readOutputLenght();
   // int valueoutput;
   // valueoutput = readOutputLenght;
   //printf("output lenght value %d \n",valueoutput);
+
+ 
+
   
 
 
