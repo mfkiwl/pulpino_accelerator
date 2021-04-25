@@ -88,26 +88,26 @@ static void convolve(
 
 static void convolve_hw(
     int *Signal,
-    int *Filter, int FilterLength,
+    int FilterLength,
     int *Output, int OutputLength)
 {
     int* registerIn = (int *)(ACCELERATOR_REGISTER_IN);
     int* registerOut = (int *)(ACCELERATOR_REGISTER_OUT);
-    int i;
+    int i,j;
     for (i = 0; i < FilterLength+OutputLength; ++i)
     {
         sendToAccelerator(registerIn, Signal[i]);
-        if(i >= 9) 
-          Output[i-9] = receiveFromAccelerator(registerOut);     
-    }
-    i++;
-    while (i < FilterLength+2*(OutputLength)) {
-      sendToAccelerator(registerIn, 0xFF);
-      Output[i-10] = receiveFromAccelerator(registerOut);     
-      i++;
-    }  
-}
 
+    }
+    while(checkFIFOempty())
+   {
+     ;
+   }
+    for (j=0; j < OutputLength; j++ )
+     {
+        Output[j]=receiveFromAccelerator(registerOut);
+     }
+}
 
 int receiveFromAccelerator(int *dataOutAddress)
 {
@@ -434,132 +434,84 @@ int main()
    configFIFOen(1);
    resetFIFO(1);
    resetFIFO(0);
-   setOutputLenght(2);
-   int input[] ={20,0,0,0,0,0,0,0,2};
-   int  output[2];
-   int* registerIn = (int *)(ACCELERATOR_REGISTER_IN);
-   int* registerOut = (int *)(ACCELERATOR_REGISTER_OUT);
+  //  setOutputLenght(2);
+  //  int input[] ={20,0,0,0,0,0,0,0,3};
+  //  int  output[2];
+  //  int* registerIn = (int *)(ACCELERATOR_REGISTER_IN);
+  //  int* registerOut = (int *)(ACCELERATOR_REGISTER_OUT);
   
-   for(int i=0;i<9;i++)
-   sendToAccelerator(registerIn,input[i]);
-   while(checkFIFOempty())
-   {
-     ;
-   }
+  //  for(int i=0;i<9;i++)
+  //  sendToAccelerator(registerIn,input[i]);
+  //  while(checkFIFOempty())
+  //  {
+  //    ;
+  //  }
   
 
-    output[0] =receiveFromAccelerator(registerOut);
-    output[1] = receiveFromAccelerator(registerOut);
-    //output[0] =receiveFromAccelerator(registerOut);
+    // output[0] =receiveFromAccelerator(registerOut);
+    // output[1] = receiveFromAccelerator(registerOut);
+    // //output[0] =receiveFromAccelerator(registerOut);
 
-    printf("value == %d\n",output[0]);
-      printf("value == %d\n",output[1]);
-
-   
+    // printf("value == %d\n",output[0]);
+    // printf("value == %d\n",output[1]);
 
 
 
-
-
-//   int tapValues [8];
-//   writeTap(8, 16);
-//   writeTap(7, 15);
-//   writeTap(6, 14);
-//   writeTap(5, 13);
-//   writeTap(4, 12);
-//   writeTap(3, 11);
-//   writeTap(2, 10);
-//   writeTap(1, 9);
-
-//   tapValues[0] = readTap(1);
-//   tapValues[1] = readTap(2);
-//   tapValues[2] = readTap(3);
-//   tapValues[3] = readTap(4);
-//   tapValues[4] = readTap(5);
-//   tapValues[5] = readTap(6);
-//   tapValues[6] = readTap(7);
-//   tapValues[7] = readTap(8);
-
-//   for (int i=0; i < 8 ; i++)
-//   printf("tap %d value %d\n ",i, tapValues[i]);
+   unsigned int perfCounterSw;
+   unsigned int perfCounterHw;
 
 
 
-  
-//   setNtaps(5);
-//   printf("End of Program\n");
-//   configNtapsEn(1);
-//   configTapWr(1);
-//   configReset(1);
-  // setOutputLenght(10);
-  // int value = readOutputLenght();
-  // int valueoutput;
-  // valueoutput = readOutputLenght;
-  //printf("output lenght value %d \n",valueoutput);
-
+   int Filter0[] = {8, 7, 6, 5, 4, 3, 2, 1 };
  
-
-  
-
-
-  //configTapWr(0);
-  //configNtapsEn(0);
-  // unsigned int perfCounterSw;
-  // unsigned int perfCounterHw;
-
-  // int* registerIn = (int *)(ACCELERATOR_REGISTER_IN);
-
-  //  //sendToAccelerator(registerIn,0xdeadbeef);
-
-  //    int Filter0[] = { 5, 4, 3, 2, 1 };
- 
-  //    unsigned int Filter0Length = NumberOf(Filter0);
+      unsigned int Filter0Length = NumberOf(Filter0);
     
 
-  //   //  Define a unit impulse positioned so it captures all of the filters.
-  //    unsigned int UnitImpulsePosition = Filter0Length - 1 ;
-  //    int UnitImpulse[LongEnough];
-  //    memset(UnitImpulse, 0, sizeof UnitImpulse);
-  //    UnitImpulse[UnitImpulsePosition] = 1;
+    //  Define a unit impulse positioned so it captures all of the filters.
+     unsigned int UnitImpulsePosition = Filter0Length - 1 ;
+     int UnitImpulse[LongEnough];
+     memset(UnitImpulse, 0, sizeof UnitImpulse);
+     UnitImpulse[UnitImpulsePosition] = 1;
     
-  //    //  Calculate a filter that is Filter0 and Filter1 combined.
-  //    int Output[LongEnough];
-  //    int Output_hw[LongEnough]; 
-  //    memset(Output_hw, 0, sizeof Output_hw);
+     //  Calculate a filter that is Filter0 and Filter1 combined.
+     int Output[LongEnough];
+     int Output_hw[LongEnough]; 
+     memset(Output_hw, 0, sizeof Output_hw);
 
-  //    //  Set N to number of inputs that must be used.
-  //   unsigned int N = UnitImpulsePosition + 1 + Filter0Length - 1 ;
+     //  Set N to number of inputs that must be used.
+    unsigned int N = UnitImpulsePosition + 1 + Filter0Length - 1 ;
 
-  //    //  Subtract to find number of outputs of first convolution, then convolve.
-  //    N -= Filter0Length - 1;
-  //    N = 10;
-  //    printf("N = %d\n",N);
+     //  Subtract to find number of outputs of first convolution, then convolve.
+     N -= Filter0Length - 1;
+     N = 10;
+     printf("N = %d\n",N);
 
-  //    perf_reset();
-  //    perf_enable_id(SPR_PCER_CYCLES);
-  //    convolve(UnitImpulse,    Filter0, Filter0Length, Output, N);
-  //    perf_stop();
-  //    perfCounterSw = cpu_perf_get(SPR_PCER_CYCLES);
+     perf_reset();
+     perf_enable_id(SPR_PCER_CYCLES);
+     convolve(UnitImpulse,    Filter0, Filter0Length, Output, N);
+     perf_stop();
+     perfCounterSw = cpu_perf_get(SPR_PCER_CYCLES);
 
-  //    perf_reset();
-  //    perf_enable_id(SPR_PCER_CYCLES);
-  //    convolve_hw(UnitImpulse,    Filter0, Filter0Length, Output_hw, N);
-  //    perf_stop();
-  //    perfCounterHw = cpu_perf_get(SPR_PCER_CYCLES);
+     perf_reset();
+     setOutputLenght(N);
+     perf_enable_id(SPR_PCER_CYCLES);
+     convolve_hw(UnitImpulse,   Filter0Length, Output_hw, N);
+     perf_stop();
+     perfCounterHw = cpu_perf_get(SPR_PCER_CYCLES);
     
 
 
-  //    //  Remember size of resulting filter.
-  //    unsigned int OutputLength = N;
+     //  Remember size of resulting filter.
+     unsigned int OutputLength = N;
 
-  //   //  Display filter.
-  //    for (unsigned int i = 0; i < OutputLength; ++i)
-  //        printf("SwFilter[%d] = %d.\n", i, Output[i]);
+    //  Display filter.
+     for (unsigned int i = 0; i < OutputLength; ++i)
+         printf("SwFilter[%d] = %d.\n", i, Output[i]);
 
-  //    for (unsigned int i = 0; i < OutputLength; ++i)
-  //        printf("HwFilter[%d] = %d.\n", i, Output_hw[i]);
+     for (unsigned int i = 0; i < OutputLength; ++i)
+         printf("HwFilter[%d] = %d.\n", i, Output_hw[i]);
 
-  //         printf("Perf: %s: SW %d  HW %d\n", SPR_PCER_NAME(SPR_PCER_CYCLES), perfCounterSw, perfCounterHw );
+          printf("Perf: %s: SW %d  HW %d\n", SPR_PCER_NAME(SPR_PCER_CYCLES), perfCounterSw, perfCounterHw );
   
 
 

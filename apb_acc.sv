@@ -666,6 +666,8 @@ assign o_empty = (counter==0)? 1'b1:1'b0;
 
 assign o_full  = (counter==SIZE)? 1'b1:1'b0; 
 
+assign o_data  = FIFO[readCounter]; 
+
 always @ (posedge i_clk or posedge i_reset) 
     begin
         if(i_reset)
@@ -697,7 +699,7 @@ begin
       else if (i_read ==1'b1 && counter!=0)
        begin 
     
-         o_data  = FIFO[readCounter]; 
+         //o_data  = FIFO[readCounter]; 
     
          readCounter = readCounter+1; 
     

@@ -1,3 +1,4 @@
+
 module FIFObuffer#(parameter DATA_SIZE=16, parameter SIZE=8, parameter ADDR_SIZE=$clog2(SIZE))( i_clk, i_data, i_read, i_write, i_en, o_data, i_reset, o_empty, o_full); 
 
                    
@@ -22,6 +23,8 @@ logic [ADDR_SIZE:0]  readCounter = 0,  writeCounter = 0;
 assign o_empty = (counter==0)? 1'b1:1'b0; 
 
 assign o_full  = (counter==SIZE)? 1'b1:1'b0; 
+
+assign o_data  = FIFO[readCounter]; 
 
 always @ (posedge i_clk or posedge i_reset) 
     begin
@@ -54,7 +57,7 @@ begin
       else if (i_read ==1'b1 && counter!=0)
        begin 
     
-         o_data  = FIFO[readCounter]; 
+         //o_data  = FIFO[readCounter]; 
     
          readCounter = readCounter+1; 
     
