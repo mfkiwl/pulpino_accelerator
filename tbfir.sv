@@ -13,6 +13,8 @@ logic cleanpip;
 logic [31:0] counter;
 logic   [(TW-1):0] newtap		[NTAPS:0] ;
 logic Reset=0;
+logic [3:0] ntaps = 5;
+logic ntapsen = 1;
 
 
 logic [31:0] cfg = 32'h00000000;
@@ -33,9 +35,11 @@ logic signed [30:0] Yout;
         .i_reset(Reset),
         .i_ce(Ice), 
         .i_sample(Xin), 
+        .i_tap_wr(tapwr),
+        .i_ntaps(ntaps),
+        .i_ntaps_en(ntapsen),
         .o_result(Yout),
         .o_valid_first(firstDataValid),        
-        .i_tap_wr(cfg[0]),
         .o_valid_result(OutputDataValid),
         .o_clean_pip(cleanpip),
         .i_output_lenght(outputlenght),
@@ -64,20 +68,20 @@ always_comb
     initial begin
     //Xin=0;
 //    #50
-//        tapwr=1;
-//        newtap[8]=16;
-//        newtap[7]=15;
-//        newtap[6]=14;
-//        newtap[5]=13;
-//        newtap[4]=12;
-//        newtap[3]=11;
-//        newtap[2]=10;
-//        newtap[1]=9;
-//        newtap[0]=8;
+        tapwr=1;
+        
+        newtap[7]=8;
+        newtap[6]=7;
+        newtap[5]=6;
+        newtap[4]=5;
+        newtap[3]=4;
+        newtap[2]=3;
+        newtap[1]=2;
+        newtap[0]=1;
 //        #10
 //         //tapwr=0;
          
-//         #10
+        
 
 
         end_input = 0;
@@ -89,7 +93,7 @@ always_comb
           Xin = 0; counter= counter+1;#10;
           Xin = 0; counter= counter+1;#10;
           Xin = 0; counter= counter+1;#10;
-          Xin = 2; counter= counter+1;#10; 
+          Xin = 0; counter= counter+1;#10; 
           end_input = 1;
 //          Xin = 0; counter= counter+1;#10;
 //          Xin = 0; counter= counter+1;#10;

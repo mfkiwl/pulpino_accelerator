@@ -14,29 +14,28 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
 	input logic i_tap_wr;
 	
 
-	//
+
 	input	logic			i_ce;
 	input	logic	[(IW-1):0]	i_sample;
 	output	logic	[(OW-1):0]	o_result;
-	input   logic   [(TW-1):0] i_new_tap		[NTAPS:0] ;
-    output logic o_valid_first;
-    output logic o_valid_result;
-    output logic o_clean_pip;
+	input   logic   [(TW-1):0] i_new_tap		[NTAPS-1:0] ;
+  output logic o_valid_first;
+  output logic o_valid_result;
+  output logic o_clean_pip;
 
-	logic   [(TW-1):0] tap		[NTAPS:0];
+	logic [(TW-1):0] tap		[NTAPS-1:0];
 	
-	logic	[(TW-1):0] tapout	[NTAPS:0];
+	logic	[(TW-1):0] tapout	[NTAPS-1:0];
 	logic	[(IW-1):0] sample	[NTAPS:0];
 	logic	[(OW-1):0] result	[NTAPS:0];
-  logic	           valid	[NTAPS:0];
-	//logic		         tap_wr;
-  //logic   [(TW-1):0] new_tap		[NTAPS:0] ;
-    logic   [3:0]      ntaps = NTAPS;
-    logic   [15:0]     input_counter = 0;
-    logic [1:0] current_state = `IDLE_STATE_FILTER , next_state;
-    logic [15:0] signal_lenght;
-    logic [15:0] output_lenght = 0;
-    logic i_ce_reg;
+  logic	           valid	[NTAPS-1:0];
+
+  logic [3:0]      ntaps = NTAPS;
+  logic [15:0]     input_counter = 0;
+  logic [1:0]      current_state = `IDLE_STATE_FILTER , next_state;
+  logic [15:0]     signal_lenght;
+  logic [15:0]     output_lenght = 0;
+  logic            i_ce_reg;
     
     assign signal_lenght = output_lenght + ntaps-1;
     //assign i_tap_wr =tap_wr;

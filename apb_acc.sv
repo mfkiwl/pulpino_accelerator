@@ -48,14 +48,17 @@ module apb_acc
   logic [11:0] addr;
   logic [31:0] data_out = 0;
   logic [3:0]  ntaps;
-  logic [31:0] cfg = 0 ; // bit[0] -> ntaps_en || bit[1] -> tap_wr || bit[2] -> reset_filter || bit[3] -> reset_fifo
+
+
+  // bit[0] -> ntaps_en || bit[1] -> tap_wr || bit[2] -> reset_filter || bit[3] -> reset_fifo || bit[4] -> fifo_en || bit[5] -> fifo_empty || bit[6] -> fifo_full || 
+  logic [31:0] cfg = 0 ; 
   logic valid;
   logic [31:0] counter = 0 ;
   logic ready;
   logic valid_out;
   logic clean_pip;
   logic [1:0] next_state, current_state;
-  logic [(TW-1):0] new_tap	[NTAPS:0] ;
+  logic [(TW-1):0] new_tap	[NTAPS-1:0] ;
   logic [31:0] output_lenght;
   logic [31:0] filter_output;
 
@@ -98,10 +101,6 @@ module apb_acc
     end
 
 
-
-
-
-
   genericfir genericfir_i
   (
       .i_clk(clk),
@@ -137,11 +136,7 @@ module apb_acc
   );
 
 
-
-
   assign read_fifo = (PSEL && PENABLE && !PWRITE && (addr == `REG_ACC_OUT));
-
-  //assign valid_out = (counter >= 10); //(PSEL && PENABLE && PWRITE) &&
   
   assign clk = HCLK;
   assign addr = PADDR[11:2]; //accelerator is word-addressed 
@@ -226,11 +221,6 @@ module apb_acc
                 new_tap[7] <= PWDATA[31:0];
               end
 
-            `REG_TAP_8:
-              begin
-                new_tap[8] <= PWDATA[31:0];
-              end
-
             `REG_OUTPUT_LENGHT:
               begin
                 output_lenght <= PWDATA[31:0];
@@ -252,13 +242,13 @@ module apb_acc
       case (addr)
         `REG_ACC_OUT:
           begin
-            //data_out[31:0] = data_in[31:0] + 32'h0000BEEF;
+            
             PRDATA[31:0] <= data_out[31:0];
           end
 
         `COUNTER_REG:
           begin
-            //data_out[31:0] = data_in[31:0] + 32'h0000BEEF;
+            
             PRDATA[31:0] <= counter[31:0];
           end
 
@@ -312,20 +302,12 @@ module apb_acc
         `REG_TAP_7:
           begin
             PRDATA[31:0] <= new_tap[7];
-          end
-
-        `REG_TAP_8:
-          begin
-            PRDATA[31:0] <= new_tap[8];
-          end  
+          end 
 
         `REG_OUTPUT_LENGHT:
           begin
             PRDATA[31:0] <= output_lenght;
           end  
-
-
-
 
 
         default:
@@ -413,7 +395,7 @@ module	firtap(i_clk, i_reset, i_tap, o_tap,
 	logic		[(IW-1):0]	delayed_sample;
 	logic	signed	[(TW+IW-1):0]	product;
 
-	// Our taps are fixed, the tap is given by the i_tap
+	// Taps are initially fixed, new taps are given by 
 	// external input.  This allows the parent module to be
 	// able to use readmemh to set all of the taps in a filter
 	assign	o_tap = i_tap;
@@ -423,7 +405,7 @@ module	firtap(i_clk, i_reset, i_tap, o_tap,
 	// next component
 	initial	o_sample = 0;
 	initial	delayed_sample = 0;
-  //initial o_valid = 0;
+  
 	always @(posedge i_clk)
 	if (i_reset)
 	   begin
@@ -459,7 +441,7 @@ module	firtap(i_clk, i_reset, i_tap, o_tap,
         o_acc <= i_partial_acc
           + { {(OW-(TW+IW)){product[(TW+IW-1)]}},
               product }; //sign extension
-//        o_valid = 1;
+
       end
 
 endmodule
@@ -480,29 +462,28 @@ module	genericfir(i_clk, i_reset, i_ce, i_ntaps, i_ntaps_en, i_output_lenght, i_
 	input logic i_tap_wr;
 	
 
-	//
+
 	input	logic			i_ce;
 	input	logic	[(IW-1):0]	i_sample;
 	output	logic	[(OW-1):0]	o_result;
-	input   logic   [(TW-1):0] i_new_tap		[NTAPS:0] ;
-    output logic o_valid_first;
-    output logic o_valid_result;
-    output logic o_clean_pip;
+	input   logic   [(TW-1):0] i_new_tap		[NTAPS-1:0] ;
+  output logic o_valid_first;
+  output logic o_valid_result;
+  output logic o_clean_pip;
 
-	logic   [(TW-1):0] tap		[NTAPS:0];
+	logic [(TW-1):0] tap		[NTAPS-1:0];
 	
-	logic	[(TW-1):0] tapout	[NTAPS:0];
+	logic	[(TW-1):0] tapout	[NTAPS-1:0];
 	logic	[(IW-1):0] sample	[NTAPS:0];
 	logic	[(OW-1):0] result	[NTAPS:0];
-  logic	           valid	[NTAPS:0];
-	//logic		         tap_wr;
-  //logic   [(TW-1):0] new_tap		[NTAPS:0] ;
-    logic   [3:0]      ntaps = NTAPS;
-    logic   [15:0]     input_counter = 0;
-    logic [1:0] current_state = `IDLE_STATE_FILTER , next_state;
-    logic [15:0] signal_lenght;
-    logic [15:0] output_lenght = 0;
-    logic i_ce_reg;
+  logic	           valid	[NTAPS-1:0];
+
+  logic [3:0]      ntaps = NTAPS;
+  logic [15:0]     input_counter = 0;
+  logic [1:0]      current_state = `IDLE_STATE_FILTER , next_state;
+  logic [15:0]     signal_lenght;
+  logic [15:0]     output_lenght = 0;
+  logic            i_ce_reg;
     
     assign signal_lenght = output_lenght + ntaps-1;
     //assign i_tap_wr =tap_wr;

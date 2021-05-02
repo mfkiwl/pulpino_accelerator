@@ -54,6 +54,7 @@ int configFIFOen(int param);
 int resetFIFO(int param);
 int checkFIFOfull(void);
 int checkFIFOempty(void);
+int configFilter(int *taps, int size );
 
 void impulse_test(int ntaps, int *dataInAddress, int *dataOutAddress, int *validOutAddress, unsigned int benchParam);
 
@@ -109,6 +110,7 @@ static void convolve_hw(
      }
 }
 
+/*Receive data from the FIFO*/
 int receiveFromAccelerator(int *dataOutAddress)
 {
   if(checkFIFOempty() == 1)
@@ -130,6 +132,7 @@ int receiveFromAccelerator(int *dataOutAddress)
   
 }
 
+/*send data to dataInAddress*/
 int sendToAccelerator(int *dataInAddress, int data)
 {
   *dataInAddress = data;
@@ -223,12 +226,7 @@ int writeTap(int tapNumber, int value)
         *(int *)(ACCELERATOR_REGISTER_TAP_7) = value;        
 		    break; 
       } 
-
-		case 8:
-      {
-        *(int *)(ACCELERATOR_REGISTER_TAP_8) = value;        
-		    break; 
-      }       
+       
 
 		default:
       { printf("Not a valid tap\n");
@@ -298,11 +296,6 @@ int readTap(int tapNumber)
 		    break;  
       } 
 
-		case 8:
-      {
-        value = *(int *)(ACCELERATOR_REGISTER_TAP_8);      
-		    break; 
-      }       
 
 		default:
       { printf("Not a valid tap\n");
@@ -315,7 +308,7 @@ int readTap(int tapNumber)
 
 }
 
-
+/*set the bit of tap_wr in cfg register*/
 int configTapWr(int param)
 {
    if(param == 1)   
@@ -331,6 +324,7 @@ int configTapWr(int param)
   return 0;
 }
 
+/*set the bit of reset_filter in cfg register*/
 int configResetFilter(int param)
 {
   if(param == 1)   
@@ -347,12 +341,14 @@ int configResetFilter(int param)
 
 }
 
+/*set the output lenght in the output_lenght genericfir register*/
 int setOutputLenght(int value)
 {
   *(int *)(ACCELERATOR_REGISTER_OUTPUT_LENGHT) = value;
   return 0;
 }
 
+/*read the output lenght set in the output_lenght genericfir register*/
 int readOutputLenght(void)
 {
   int value = *(int *)(ACCELERATOR_REGISTER_OUTPUT_LENGHT);
@@ -360,6 +356,7 @@ int readOutputLenght(void)
   return value;
 }
 
+/*set the bit of fifo_en in cfg register*/
 int configFIFOen(int param)
 {
      if(param == 1)   
@@ -376,6 +373,7 @@ int configFIFOen(int param)
 
 }
 
+/*set the bit of fifo_en in cfg register*/
 int resetFIFO(int param)
 {
        if(param == 1)   
@@ -391,6 +389,7 @@ int resetFIFO(int param)
   return 0;
 }
 
+/*checks if the FIFO is empty, if yes returns 1, 0 otherwise*/
 int checkFIFOempty(void)
 {
   int value;
@@ -399,7 +398,7 @@ int checkFIFOempty(void)
   else return 0;
 }
 
-
+/*maps the performance counter according to the eventID*/
 void perf_enable_id( int eventid){
   cpu_perf_conf_events(SPR_PCER_EVENT_MASK(eventid));
   cpu_perf_conf(SPR_PCMR_ACTIVE | SPR_PCMR_SATURATE);
@@ -427,13 +426,44 @@ void impulse_test(int ntaps, int *dataInAddress, int *dataOutAddress, int *valid
 
 }
 
+/*sets the filter taps  according to the values contained in taps, in case of too many taps returns 0, 1 otherwise*/
+int configFilter(int *taps, int size )
+{
+ if(size>7)
+ return 0;
+ for(int i=0; i<size; i++)
+  {
+    writeTap((7-i),taps[i]); 
+  }
+
+ return 1;
+}
+
 #define LongEnough  128
 
 int main()
  { 
-   configFIFOen(1);
-   resetFIFO(1);
-   resetFIFO(0);
+   int Filter0[] = { 5, 4, 3, 2, 1 };
+   //configFilter(Filter0,NumberOf(Filter0));
+
+
+  //  configFIFOen(1);
+  //  resetFIFO(1);
+  //  resetFIFO(0);
+  //  setNtaps(5);
+  //  configNtapsEn(1);
+  //  configNtapsEn(0);
+  //  writeTap(7,Filter0[0]);
+  //  writeTap(6,Filter0[1]);
+  //  writeTap(5,Filter0[2]);
+  //  writeTap(4,Filter0[3]);
+  //  writeTap(3,Filter0[4]);
+  //  //writeTap(5,3);
+  //  //writeTap(1,2);
+  //  //writeTap(0,1);
+  //  configTapWr(1);
+  //  configTapWr(0);
+
   //  setOutputLenght(2);
   //  int input[] ={20,0,0,0,0,0,0,0,3};
   //  int  output[2];
@@ -462,39 +492,55 @@ int main()
 
 
 
-   int Filter0[] = {8, 7, 6, 5, 4, 3, 2, 1 };
  
-      unsigned int Filter0Length = NumberOf(Filter0);
-    
+  unsigned int Filter0Length = NumberOf(Filter0);
 
-    //  Define a unit impulse positioned so it captures all of the filters.
-     unsigned int UnitImpulsePosition = Filter0Length - 1 ;
-     int UnitImpulse[LongEnough];
-     memset(UnitImpulse, 0, sizeof UnitImpulse);
-     UnitImpulse[UnitImpulsePosition] = 1;
-    
-     //  Calculate a filter that is Filter0 and Filter1 combined.
-     int Output[LongEnough];
-     int Output_hw[LongEnough]; 
-     memset(Output_hw, 0, sizeof Output_hw);
 
-     //  Set N to number of inputs that must be used.
-    unsigned int N = UnitImpulsePosition + 1 + Filter0Length - 1 ;
+//  Define a unit impulse positioned so it captures all of the filters.
+  unsigned int UnitImpulsePosition = Filter0Length - 1 ;
+  int UnitImpulse[LongEnough];
+  memset(UnitImpulse, 0, sizeof UnitImpulse);
+  UnitImpulse[UnitImpulsePosition] = 1;
 
-     //  Subtract to find number of outputs of first convolution, then convolve.
-     N -= Filter0Length - 1;
-     N = 10;
-     printf("N = %d\n",N);
+  //  Calculate a filter that is Filter0 and Filter1 combined.
+  int Output[LongEnough];
+  int Output_hw[LongEnough]; 
+  memset(Output_hw, 0, sizeof Output_hw);
 
-     perf_reset();
-     perf_enable_id(SPR_PCER_CYCLES);
-     convolve(UnitImpulse,    Filter0, Filter0Length, Output, N);
-     perf_stop();
-     perfCounterSw = cpu_perf_get(SPR_PCER_CYCLES);
+  //  Set N to number of inputs that must be used.
+  unsigned int N = UnitImpulsePosition + 1 + Filter0Length - 1 ;
 
-     perf_reset();
-     setOutputLenght(N);
-     perf_enable_id(SPR_PCER_CYCLES);
+  //  Subtract to find number of outputs of first convolution, then convolve.
+  N -= Filter0Length - 1;
+  N = 10;
+  printf("N = %d\n",N);
+
+  perf_reset();
+  perf_enable_id(SPR_PCER_CYCLES);
+  convolve(UnitImpulse,    Filter0, Filter0Length, Output, N);
+  perf_stop();
+  perfCounterSw = cpu_perf_get(SPR_PCER_CYCLES);
+
+  perf_reset();
+  setOutputLenght(N);
+  perf_enable_id(SPR_PCER_CYCLES);
+  configFIFOen(1);
+  resetFIFO(1);
+  resetFIFO(0);
+   setNtaps(5);
+   configNtapsEn(1);
+   configNtapsEn(0);
+   configFilter(Filter0,NumberOf(Filter0));
+  //  writeTap(7,Filter0[0]);
+  //  writeTap(6,Filter0[1]);
+  //  writeTap(5,Filter0[2]);
+  //  writeTap(4,Filter0[3]);
+  //  writeTap(3,Filter0[4]);
+   //writeTap(5,3);
+   //writeTap(1,2);
+   //writeTap(0,1);
+   configTapWr(1);
+   configTapWr(0);
      convolve_hw(UnitImpulse,   Filter0Length, Output_hw, N);
      perf_stop();
      perfCounterHw = cpu_perf_get(SPR_PCER_CYCLES);
